@@ -103,7 +103,6 @@ const getFilteredProperties = async (req, res) => {
 
 
     let validAreas = null;
-    let neighbourAreas = [];
     const dataFilePath = path.join(__dirname, "..", "..", "data.json");
     const rawData = fs.readFileSync(dataFilePath, "utf-8");
     const areaData = JSON.parse(rawData);
@@ -118,43 +117,42 @@ const getFilteredProperties = async (req, res) => {
     // Utility function to fetch valid areas and their neighboring areas
     const getValidAreas = (areas, areaData) => {
       const formattedAreas = areas.map(toTitleCase);
-      
+    
       return areaData
-        .filter(
-          (entry) =>
-            formattedAreas.includes(entry.Area.trim()) ||
-            formattedAreas.includes(entry.AREA.trim())
-        )
-        .flatMap((entry) => [
-          // entry.Area.trim(),
-          ...(entry["Neighbouring Areas"]
-            ? entry["Neighbouring Areas"].split(",").map((a) => toTitleCase(a.trim()))
-            : []),
-        ]);
+        .filter((entry) => {
+          const entryArea = toTitleCase(entry.Area.trim());
+          const entryAREA = toTitleCase(entry.AREA.trim());
+    
+          return formattedAreas.includes(entryArea) || formattedAreas.includes(entryAREA);
+        })
+        .flatMap((entry) => {
+          const mainArea = toTitleCase(entry.Area.trim());
+    
+          // Extract neighboring areas safely
+          const neighbors = entry["Neighbouring Areas"]
+            ? entry["Neighbouring Areas"]
+                .split(",")
+                .map((a) => toTitleCase(a.trim()))
+            : [];
+    
+          return [mainArea, ...neighbors];
+        });
     };
-  
 
     // Handling city filter
     if (city) {
       filter.city = city;
-      // if (locality) {
-      //   // filter.locality = locality;
-      //   filter.locality = toTitleCase(locality);
-      //   if (area) {
-      //     const areas = area.split(",").map((a) => a.trim());
-      //     filter.area = { $in: areas };
-      //   }
-      
-      // }
-      // Handling locality search
       if (locality) {
         filter.locality = toTitleCase(locality);
       }
       if (area) {
         const areas = area.split(",").map((a) => a.trim());
         validAreas = getValidAreas(areas, areaData);
-        filter.area = areas;
-        neighbourAreas = validAreas;
+        if (validAreas.length > 0) {
+          filter.area = { $in: validAreas };
+        }  
+        console.log(validAreas);
+        
       }
     }
 
@@ -165,11 +163,7 @@ const getFilteredProperties = async (req, res) => {
 
     // Fetch filtered properties from the database with pagination
     const properties = await Property.find(filter).skip(skip).limit(limitNum);
-    // if (!area) {
-    //   const propertyAreas = properties.map((prop) => toTitleCase(prop.area));
-    //   neighbourAreas = getValidAreas(propertyAreas, areaData);
-    // }
-
+ 
     const total = await Property.find(filter).countDocuments(); // Total number of properties
     const totalPages = Math.ceil(total / limitNum);
 
@@ -180,7 +174,7 @@ const getFilteredProperties = async (req, res) => {
       page: pageNum,
       limit: limitNum,
       totalPages: totalPages,
-      neighbourAreas: neighbourAreas
+     
     });
   } catch (error) {
     // Send error response
