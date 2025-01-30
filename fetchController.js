@@ -165,10 +165,10 @@ const getFilteredProperties = async (req, res) => {
 
     // Fetch filtered properties from the database with pagination
     const properties = await Property.find(filter).skip(skip).limit(limitNum);
-    if (!area) {
-      const propertyAreas = properties.map((prop) => toTitleCase(prop.area));
-      neighbourAreas = getValidAreas(propertyAreas, areaData);
-    }
+    // if (!area) {
+    //   const propertyAreas = properties.map((prop) => toTitleCase(prop.area));
+    //   neighbourAreas = getValidAreas(propertyAreas, areaData);
+    // }
 
     const total = await Property.find(filter).countDocuments(); // Total number of properties
     const totalPages = Math.ceil(total / limitNum);
